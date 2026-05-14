@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 import KanbanColumn from './KanbanColumn';
 import ImportButton from './ImportButton';
 
@@ -17,90 +19,137 @@ const stageConfig: Record<StageId, { name: string; color: string }> = {
   cerrado: { name: 'Cerrado', color: '#10b981' },
 };
 
-type Lead = { id: string; name: string; company: string; score: string; insights: string };
-
-const initialLeads: Record<StageId, Lead[]> = {
-  contactado: [
-    { id: '1', name: 'Amon Strams', company: 'Company', score: 'Alto', insights: 'Interesado en escalabilidad' },
-    { id: '2', name: 'Amon Holos', company: 'Company', score: 'Alto', insights: 'Interesado en escalabilidad' },
-    { id: '3', name: 'Kevin Barela', company: 'Company', score: 'Caliente', insights: 'Presupuesto confirmado' },
-  ],
-  reunion_agendada: [
-    { id: '4', name: 'Jom Faltants', company: 'Company', score: 'Alto', insights: 'Interesado en escalabilidad' },
-    { id: '5', name: 'Roroot Adams', company: 'Company', score: 'Alto', insights: 'Presupuesto confirmado' },
-  ],
-  propuesta_enviada: [
-    { id: '6', name: 'Robbet Sovando', company: 'Company', score: 'Caliente', insights: 'Interesado en escalabilidad' },
-    { id: '7', name: 'Marksllamiton', company: 'Company', score: 'Caliente', insights: 'Presupuesto confirmado' },
-    { id: '8', name: 'Jonon Wollemonton', company: 'Company', score: 'Alto', insights: 'Presupuesto confirmado' },
-  ],
-  negociacion: [
-    { id: '9', name: 'Naik Srole', company: 'Company', score: 'Caliente', insights: 'Presupuesto confirmado' },
-    { id: '10', name: 'Ketin Fipala', company: 'Company', score: 'Caliente', insights: 'Presupuesto escalabilidad' },
-  ],
-  cerrado: [
-    { id: '11', name: 'Sonca Coment', company: 'Company', score: 'Alto', insights: 'Interesado en escalabilidad' },
-    { id: '12', name: 'Marvio Blinear', company: 'Company', score: 'Alto', insights: 'Presupuesto confirmado' },
-  ],
+type Lead = { 
+  id: string; 
+  name: string; 
+  company: string; 
+  score: string; 
+  insights: string;
+  value: number;
 };
 
 export default function Pipeline() {
-  const [leads, setLeads] = useState(initialLeads);
+  const { user } = useAuth();
+  const [leads, setLeads] = useState<Record<StageId, Lead[]>>({
+    contactado: [],
+    reunion_agendada: [],
+    propuesta_enviada: [],
+    negociacion: [],
+    cerrado: [],
+  });
+  const [loading, setLoading] = useState(true);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  useEffect(() => {
+    if (!user) return;
+
+    const loadLeads = async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (!error && data) {
+        const grouped: Record<StageId, Lead[]> = {
+          contactado: [],
+          reunion_agendada: [],
+          propuesta_enviada: [],
+          negociacion: [],
+          cerrado: [],
+        };
+
+        data.forEach((lead: any) => {
+          const stage = lead.stage as StageId;
+          if (grouped[stage]) {
+            grouped[stage].push({
+              id: lead.id,
+              name: lead.name,
+              company: lead.company || '',
+              score: lead.score || 'Medio',
+              insights: lead.insights || '',
+              value: lead.value || 0,
+            });
+          }
+        });
+
+        setLeads(grouped);
+      }
+      setLoading(false);
+    };
+
+    loadLeads();
+  }, [user]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over || !user) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    setLeads((prev) => {
-      const newLeads = { ...prev } as Record<StageId, Lead[]>;
-      let sourceStage: StageId | null = null;
-      let targetStage: StageId | null = null;
-      let leadData: Lead | null = null;
+    let targetStage: StageId | null = null;
 
-      // Find source stage and lead
+    if (stageIds.includes(overId as StageId)) {
+      targetStage = overId as StageId;
+    } else {
       for (const stage of stageIds) {
-        const lead = prev[stage].find((l) => l.id === activeId);
-        if (lead) {
-          sourceStage = stage;
-          leadData = lead;
+        if (leads[stage].some((l) => l.id === overId)) {
+          targetStage = stage;
           break;
         }
       }
+    }
 
-      if (!leadData || !sourceStage) return prev;
+    if (!targetStage) return;
 
-      // Check if overId is a stage id
-      if (stageIds.includes(overId as StageId)) {
-        targetStage = overId as StageId;
-      } else {
-        // Find target stage from lead id
-        for (const stage of stageIds) {
-          if (prev[stage].some((l) => l.id === overId)) {
-            targetStage = stage;
-            break;
-          }
-        }
+    // Find source stage
+    let sourceStage: StageId | null = null;
+    for (const stage of stageIds) {
+      if (leads[stage].some((l) => l.id === activeId)) {
+        sourceStage = stage;
+        break;
       }
+    }
 
-      if (!targetStage || sourceStage === targetStage) return prev;
+    if (!sourceStage || sourceStage === targetStage) return;
 
-      // Move lead
-      newLeads[sourceStage] = prev[sourceStage].filter((l) => l.id !== activeId);
-      newLeads[targetStage] = [...prev[targetStage], leadData];
+    // Update in Supabase
+    const { error } = await supabase
+      .from('leads')
+      .update({ stage: targetStage })
+      .eq('id', activeId);
 
-      return newLeads;
-    });
+    if (!error) {
+      setLeads((prev) => {
+        const newLeads = { ...prev };
+        const lead = prev[sourceStage!].find((l) => l.id === activeId);
+        if (!lead) return prev;
+
+        newLeads[sourceStage!] = prev[sourceStage!].filter((l) => l.id !== activeId);
+        newLeads[targetStage!] = [...prev[targetStage!], lead];
+
+        return newLeads;
+      });
+    }
   };
 
   const initialStages = stageIds.map((id) => ({ id, ...stageConfig[id] }));
+  const totalLeads = Object.values(leads).flat().length;
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-purple-600">Cargando pipeline...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Pipeline</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Pipeline</h1>
+          <p className="text-sm text-gray-500">{totalLeads} leads en total</p>
+        </div>
         <div className="flex gap-3">
           <ImportButton />
         </div>
@@ -126,7 +175,9 @@ export default function Pipeline() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-500 mb-1">Tasa de cierre:</div>
-            <div className="text-2xl font-bold text-gray-900">28%</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {totalLeads > 0 ? Math.round((leads.cerrado.length / totalLeads) * 100) : 0}%
+            </div>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-500 mb-1">Tiempo promedio por etapa:</div>
@@ -134,7 +185,9 @@ export default function Pipeline() {
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-500 mb-1">Valor del pipeline:</div>
-            <div className="text-2xl font-bold text-gray-900">$85,000</div>
+            <div className="text-2xl font-bold text-gray-900">
+              ${Object.values(leads).flat().reduce((sum, l) => sum + (l.value || 0), 0).toLocaleString()}
+            </div>
           </div>
         </div>
       </div>

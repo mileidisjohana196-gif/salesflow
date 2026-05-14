@@ -1,12 +1,12 @@
+'use client';
+
 import './globals.css';
 import { Inter } from 'next/font/google';
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 const inter = Inter({ subsets: ['latin'] });
-
-export const metadata = {
-  title: 'SalesFlow - Cierra ventas más rápido',
-  description: 'Pipeline de ventas con IA',
-};
 
 export default function RootLayout({
   children,
