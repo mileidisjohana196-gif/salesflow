@@ -1,0 +1,20 @@
+# See https://help.github.com/articles/ignoring-node-modules/ for more about Node.js
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.vercel
