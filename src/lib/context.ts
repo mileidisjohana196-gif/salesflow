@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState } from 'react';
 
-type FilterType = { type: 'all' } | { type: 'stage'; value: string } | { type: 'task' };
+export type FilterType = { type: 'all' } | { type: 'stage'; value: string } | { type: 'task' };
 
 interface AppContextType {
   filter: FilterType;
