@@ -1,68 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { lead, type } = await request.json();
+    if (!lead?.id || !type) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
-    const prompt = type === 'propuesta' 
-      ? `Generá una propuesta comercial personalizada para el lead "${lead.name}" de "${lead.company}". 
-         Score: ${lead.score}, Insights: ${lead.insights}.
-         La propuesta debe ser profesional, concisa y enfocada en cerrar la venta.`
-      : type === 'seguimiento'
-      ? `Generá un mensaje de seguimiento para el lead "${lead.name}" de "${lead.company}".
-         Score: ${lead.score}, Insights: ${lead.insights}.
-         El mensaje debe ser amable pero persuasivo, recordando el valor de nuestro servicio.`
-      : `Generá un mensaje personalizado para el lead "${lead.name}" de "${lead.company}".
-         Score: ${lead.score}, Insights: ${lead.insights}.
-         Adaptá el tono según el score y los insights del lead.`;
+    const prompts: Record<string, string> = {
+      propuesta: `Propuesta comercial para ${lead.name} de ${lead.company}. Score: ${lead.score}. Insights: ${lead.insights}. Sé profesional y enfocado en cerrar.`,
+      seguimiento: `Mensaje de seguimiento para ${lead.name} de ${lead.company}. Score: ${lead.score}. Insights: ${lead.insights}. Amable pero persuasivo.`,
+      personalizado: `Mensaje personalizado para ${lead.name} de ${lead.company}. Score: ${lead.score}. Insights: ${lead.insights}. Adaptá el tono al score.`,
+    };
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-      },
-      body: JSON.stringify({
-        model: 'qwen/qwen-turbo:free',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500,
-      }),
+      headers: { 'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' },
+      body: JSON.stringify({ model: 'qwen/qwen-turbo:free', messages: [{ role: 'user', content: prompts[type] || prompts.personalizado }], max_tokens: 400 }),
     });
 
     const data = await response.json();
-    const message = data.choices?.[0]?.message?.content || '';
+    const message = data.choices?.[0]?.message?.content || 'No se pudo generar el mensaje.';
 
-    // Guardar mensaje en BD
-    await supabase.from('ai_messages').insert({
-      user_id: user.id,
-      lead_id: lead.id,
-      content: message,
-      type,
-    });
+    await supabase.from('ai_messages').insert({ lead_id: lead.id, content: message, type });
 
     return NextResponse.json({ message });
   } catch (error) {
-    console.error('Error generating message:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

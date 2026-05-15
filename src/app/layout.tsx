@@ -2,20 +2,21 @@
 
 import './globals.css';
 import { Inter } from 'next/font/google';
-import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { AppProvider } from '@/lib/context';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const metadata = {
+  title: 'SalesFlow',
+  description: 'Pipeline de ventas con IA',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <AppProvider>{children}</AppProvider>
+      </body>
     </html>
   );
 }
