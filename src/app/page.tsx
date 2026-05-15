@@ -6,7 +6,10 @@ import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import Sidebar from '@/components/Sidebar';
 import TopNav from '@/components/TopNav';
+import Dashboard from '@/components/Dashboard';
 import Pipeline from '@/components/Pipeline';
+import Seguimiento from '@/components/Seguimiento';
+import Mensajeria from '@/components/Mensajeria';
 
 export default function Home() {
   const router = useRouter();
@@ -49,10 +52,10 @@ export default function Home() {
         <TopNav currentTab={currentTab} onTabChange={setCurrentTab} />
         <main className="flex-1 overflow-auto">
           {currentTab === 'pipeline' && <Pipeline />}
-          {currentTab === 'dashboard' && <div className="p-6">Dashboard próximamente</div>}
-          {currentTab === 'seguimiento' && <div className="p-6">Seguimiento próximamente</div>}
-          {currentTab === 'mensajeria' && <div className="p-6">Mensajería próximamente</div>}
-          {currentTab === 'metricas' && <div className="p-6">Métricas próximamente</div>}
+          {currentTab === 'dashboard' && <Dashboard />}
+          {currentTab === 'seguimiento' && <Seguimiento />}
+          {currentTab === 'mensajeria' && <Mensajeria />}
+          {currentTab === 'metricas' && <Dashboard />}
           {currentTab === 'configuracion' && <div className="p-6">Configuración próximamente</div>}
         </main>
       </div>
