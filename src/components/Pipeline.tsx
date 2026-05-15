@@ -5,7 +5,6 @@ import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { useAppContext } from '@/lib/context';
 import KanbanColumn from './KanbanColumn';
 import ImportButton from './ImportButton';
 
@@ -22,9 +21,8 @@ const stageConfig: Record<StageId, { name: string; color: string }> = {
 
 type Lead = { id: string; name: string; company: string; score: string; insights: string; value: number; email?: string; phone?: string; stage: string };
 
-export default function Pipeline() {
+export default function Pipeline({ filter }: { filter?: { type: string; value?: string } }) {
   const { user } = useAuth();
-  const { filter } = useAppContext();
   const [leads, setLeads] = useState<Record<StageId, Lead[]>>({ contactado: [], reunion_agendada: [], propuesta_enviada: [], negociacion: [], cerrado: [] });
   const [loading, setLoading] = useState(true);
 
@@ -75,15 +73,16 @@ export default function Pipeline() {
   const initialStages = stageIds.map(id => ({ id, ...stageConfig[id] }));
   
   // Apply filter
+  const safeFilter = filter || { type: 'all' };
   const filteredLeads = useMemo(() => {
-    if (filter.type === 'all') return leads;
-    if (filter.type === 'stage') {
-      const filtered: Record<StageId, Lead[]> = { contactado: [], reunion_agendada: [], propuesta_enviada: [], negociacion: [], cerrado: [] };
-      filtered[filter.value as StageId] = leads[filter.value as StageId] || [];
-      return filtered;
+    if (safeFilter.type === 'all') return leads;
+    if (safeFilter.type === 'stage') {
+      const f: Record<StageId, Lead[]> = { contactado: [], reunion_agendada: [], propuesta_enviada: [], negociacion: [], cerrado: [] };
+      f[safeFilter.value as StageId] = leads[safeFilter.value as StageId] || [];
+      return f;
     }
     return leads;
-  }, [leads, filter]);
+  }, [leads, safeFilter]);
 
   const totalLeads = Object.values(filteredLeads).flat().length;
 
@@ -94,7 +93,7 @@ export default function Pipeline() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Pipeline</h1>
-          <p className="text-sm text-gray-500">{totalLeads} leads{filter.type === 'stage' ? ` en "${stageConfig[filter.value as StageId]?.name}"` : ''}</p>
+          <p className="text-sm text-gray-500">{totalLeads} leads{safeFilter.type === 'stage' ? ` en "${stageConfig[safeFilter.value as StageId]?.name}"` : ''}</p>
         </div>
         <ImportButton />
       </div>

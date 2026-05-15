@@ -16,42 +16,35 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('pipeline');
+  const [filter, setFilter] = useState<{ type: string; value?: string }>({ type: 'all' });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUser(data.user);
-      } else {
-        router.push('/login');
-      }
+      if (data.user) setUser(data.user); else router.push('/login');
       setLoading(false);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) router.push('/login');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUser(s?.user ?? null);
+      if (!s?.user) router.push('/login');
     });
-
     return () => subscription.unsubscribe();
   }, [router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-purple-600 text-lg">Cargando...</div>
-      </div>
-    );
-  }
+  const handleStageClick = (stageId: string) => {
+    setFilter({ type: 'stage', value: stageId });
+    setCurrentTab('pipeline');
+  };
 
+  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-purple-600">Cargando...</div></div>;
   if (!user) return null;
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar filter={filter} onStageClick={handleStageClick} onAllClick={() => { setFilter({ type: 'all' }); setCurrentTab('pipeline'); }} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopNav currentTab={currentTab} onTabChange={setCurrentTab} />
         <main className="flex-1 overflow-auto">
-          {currentTab === 'pipeline' && <Pipeline />}
+          {currentTab === 'pipeline' && <Pipeline filter={filter} />}
           {currentTab === 'dashboard' && <Dashboard />}
           {currentTab === 'seguimiento' && <Seguimiento />}
           {currentTab === 'mensajeria' && <Mensajeria />}
