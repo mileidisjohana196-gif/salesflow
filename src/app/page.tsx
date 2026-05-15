@@ -10,6 +10,8 @@ import Dashboard from '@/components/Dashboard';
 import Pipeline from '@/components/Pipeline';
 import Seguimiento from '@/components/Seguimiento';
 import Mensajeria from '@/components/Mensajeria';
+import Metricas from '@/components/Metricas';
+import Configuracion from '@/components/Configuracion';
 
 export default function Home() {
   const router = useRouter();
@@ -30,26 +32,21 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  const handleStageClick = (stageId: string) => {
-    setFilter({ type: 'stage', value: stageId });
-    setCurrentTab('pipeline');
-  };
-
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-purple-600">Cargando...</div></div>;
+  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-purple-600 animate-pulse">Cargando SalesFlow...</div></div>;
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar filter={filter} onStageClick={handleStageClick} onAllClick={() => { setFilter({ type: 'all' }); setCurrentTab('pipeline'); }} />
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar filter={filter} onStageClick={stageId => { setFilter({ type: 'stage', value: stageId }); setCurrentTab('pipeline'); }} onAllClick={() => { setFilter({ type: 'all' }); setCurrentTab('pipeline'); }} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopNav currentTab={currentTab} onTabChange={setCurrentTab} />
         <main className="flex-1 overflow-auto">
-          {currentTab === 'pipeline' && <Pipeline filter={filter} />}
-          {currentTab === 'dashboard' && <Dashboard />}
-          {currentTab === 'seguimiento' && <Seguimiento />}
-          {currentTab === 'mensajeria' && <Mensajeria />}
-          {currentTab === 'metricas' && <Dashboard />}
-          {currentTab === 'configuracion' && <div className="p-6">Configuración próximamente</div>}
+          {currentTab === 'dashboard'     && <Dashboard />}
+          {currentTab === 'pipeline'      && <Pipeline filter={filter} />}
+          {currentTab === 'seguimiento'   && <Seguimiento />}
+          {currentTab === 'mensajeria'    && <Mensajeria />}
+          {currentTab === 'metricas'      && <Metricas />}
+          {currentTab === 'configuracion' && <Configuracion />}
         </main>
       </div>
     </div>
